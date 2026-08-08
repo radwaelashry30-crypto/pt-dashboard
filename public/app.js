@@ -599,6 +599,47 @@ async function renderEda() {
     marker: { color: origin === 'Plant' ? PLANT_COLOR() : FUNGAL_COLOR() }, boxpoints: 'all', jitter: 0.4, pointpos: 0,
   }));
   plot('c-temp', tempData, { yaxis: { title: '°C' } });
+
+  const regioClass = (r) => {
+    for (const t of r.regioTokens) {
+      const c = t.trim();
+      if (/^C/i.test(c)) return 'C-prenylation';
+      if (/^O/i.test(c)) return 'O-prenylation';
+    }
+    return r.regioTokens.length ? 'Other / unspecified' : null;
+  };
+  const regioByOrigin = {};
+  rows.forEach((r) => {
+    const cls = regioClass(r);
+    if (!cls) return;
+    (regioByOrigin[cls] ??= { Plant: 0, Fungal: 0 })[r.origin]++;
+  });
+  const regioClasses = ['C-prenylation', 'O-prenylation', 'Other / unspecified'].filter((c) => regioByOrigin[c]);
+  plot('c-regio', [
+    { type: 'bar', name: 'Plant', x: regioClasses, y: regioClasses.map((c) => regioByOrigin[c].Plant), marker: { color: PLANT_COLOR() } },
+    { type: 'bar', name: 'Fungal', x: regioClasses, y: regioClasses.map((c) => regioByOrigin[c].Fungal), marker: { color: FUNGAL_COLOR() } },
+  ], { barmode: 'stack' }, { onClick: (d) => setFilter('search', d.points[0].x.replace(' / unspecified', '').replace('-prenylation', '')) });
+
+  const phTempRows = rows.filter((r) => r.ph?.valid && r.temp?.valid);
+  plot('c-phtemp', [{
+    type: 'scatter', mode: 'markers', x: phTempRows.map((r) => r.ph.mid), y: phTempRows.map((r) => r.temp.mid),
+    text: phTempRows.map((r) => r.enzyme),
+    marker: { color: phTempRows.map((r) => r.origin === 'Plant' ? PLANT_COLOR() : FUNGAL_COLOR()), size: 9 },
+  }], { xaxis: { title: 'Optimal pH' }, yaxis: { title: 'Optimal temperature (°C)' } });
+
+  const completeness = groupCount(rows, (r) => r.dataCompleteness);
+  plot('c-completeness', [{
+    type: 'pie', labels: Object.keys(completeness), values: Object.values(completeness), hole: 0.55,
+    marker: { colors: Object.keys(completeness).map((c) => c === 'complete' ? cssVar('--success') : c === 'partial' ? cssVar('--amber') : cssVar('--red')) },
+    textinfo: 'label+percent',
+  }], {}, { onClick: (d) => toggleMultiValue('completeness', d.points[0].label) });
+
+  const donorBreadth = groupCount(rows, (r) => {
+    const n = r.allAcceptedDonors.length;
+    return n <= 1 ? '1 donor' : n === 2 ? '2 donors' : n === 3 ? '3 donors' : '4+ donors';
+  });
+  const breadthOrder = ['1 donor', '2 donors', '3 donors', '4+ donors'].filter((k) => donorBreadth[k]);
+  plot('c-donorbreadth', [{ type: 'bar', x: breadthOrder, y: breadthOrder.map((k) => donorBreadth[k]), marker: { color: PLANT_COLOR() } }], {});
 }
 function groupCount(rows, fn) {
   const out = {};

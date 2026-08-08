@@ -192,6 +192,20 @@
         <div class="card"><h3>Optimal temperature distribution</h3><p class="cap">°C, plant vs. fungal.</p><div class="chart" id="c-temp" style="height:320px;"></div></div>
       </div>
     </section>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">05</span><h2>Regiospecificity &amp; deeper cuts</h2></div>
+      <p class="sec-desc">Where prenylation occurs, how complete each record's characterization is, and how
+      reaction conditions relate to each other.</p>
+      <div class="grid g2">
+        <div class="card"><h3>C- vs O-prenylation by kingdom</h3><p class="cap">Regio tokens classified by leading C/O; free-text and unannotated regio fields are grouped as "Other / unspecified". Click a bar to filter.</p><div class="chart" id="c-regio" style="height:340px;"></div></div>
+        <div class="card"><h3>Optimal pH vs. temperature</h3><p class="cap">Each point is one enzyme with both values plausibility-validated, colored by kingdom.</p><div class="chart" id="c-phtemp" style="height:340px;"></div></div>
+      </div>
+      <div class="grid g2" style="margin-top:16px;">
+        <div class="card"><h3>Data completeness</h3><p class="cap">Share of records with a full pH + temperature + Km + donor profile vs. a partial one. Click a slice to filter.</p><div class="chart" id="c-completeness" style="height:300px;"></div></div>
+        <div class="card"><h3>Donor breadth</h3><p class="cap">Records by how many distinct prenyl donors they accept — a proxy for donor promiscuity.</p><div class="chart" id="c-donorbreadth" style="height:300px;"></div></div>
+      </div>
+    </section>
   </div>
 
   <!-- ============ DATA CLEANING & PARSING ============ -->
