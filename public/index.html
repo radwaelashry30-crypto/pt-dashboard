@@ -329,27 +329,25 @@
     </section>
   </div>
 
-  <!-- ============ ASK THE DATA (RAG) ============ -->
+  <!-- ============ ASK THE DATA (free keyword search) ============ -->
   <div class="page" id="page-ask">
     <section>
       <div class="sec-head"><span class="sec-num">A1</span><h2>Ask the Data</h2></div>
-      <p class="sec-desc">Ask a question in plain language. The dashboard retrieves the most relevant records from
-      the currently filtered dataset and asks Claude to answer <strong>grounded only in those records</strong>, with
-      an S.No citation on every claim — it will not answer from general biochemistry knowledge beyond what's in this
-      workbook. Requires the server to have an <code>ANTHROPIC_API_KEY</code> configured; if it doesn't, this tab
-      will say so.</p>
+      <p class="sec-desc">Type a question or a few keywords in plain language. This searches every field of the
+      currently filtered dataset (enzyme, organism, family, acceptor class, donors, metals, host, author, DOI) and
+      ranks records by relevance — entirely local, no external API, no cost. The summary line below the results is
+      computed directly from the matches (counts, most common class/donor), not AI-generated text.</p>
       <div class="card">
         <div class="ask-row">
-          <input type="text" id="askInput" placeholder="e.g. Which enzymes use FPP as a donor and what metal ions do they need?" maxlength="500">
-          <button id="askBtn" class="upload-btn">Ask</button>
+          <input type="text" id="askInput" placeholder="e.g. FPP donor fungal metal ion" maxlength="500">
+          <button id="askBtn" class="upload-btn">Search</button>
         </div>
-        <div id="askStatus" class="mono" style="margin-top:8px; font-size:11.5px; color:var(--ink-faint);"></div>
-        <div id="askAnswer" style="margin-top:14px;"></div>
+        <div id="askStatus" class="mono" style="margin-top:8px; font-size:12px; color:var(--ink-soft);"></div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <h3>Retrieved records</h3>
-        <p class="cap">The records handed to Claude as context for the answer above.</p>
-        <div id="askRetrieved" class="mono" style="font-size:11.5px; line-height:1.8;"></div>
+        <h3>Matching records</h3>
+        <p class="cap">Click a row to jump to it in the Record Browser.</p>
+        <div id="askRetrieved"></div>
       </div>
     </section>
   </div>

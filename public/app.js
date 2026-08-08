@@ -843,17 +843,15 @@ function initAsk() {
 async function askTheData(question) {
   if (!question) return;
   const statusEl = document.getElementById('askStatus');
-  const answerEl = document.getElementById('askAnswer');
   const retrievedEl = document.getElementById('askRetrieved');
   const btn = document.getElementById('askBtn');
 
   btn.disabled = true;
-  statusEl.textContent = 'Retrieving relevant records and asking Claude…';
-  answerEl.innerHTML = '';
+  statusEl.textContent = 'Searching…';
   retrievedEl.innerHTML = '';
 
   try {
-    const resp = await fetch('/api/analysis/ask', {
+    const resp = await fetch('/api/analysis/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, filters: filtersToParams(filters).toString() ? Object.fromEntries(filtersToParams(filters)) : {} }),
@@ -861,20 +859,31 @@ async function askTheData(question) {
     const data = await resp.json();
     if (!data.ok) {
       statusEl.textContent = '';
-      answerEl.innerHTML = `<div class="ask-error">${escapeHtml(data.error || 'Something went wrong.')}</div>`;
+      retrievedEl.innerHTML = `<div class="ask-error">${escapeHtml(data.error || 'Something went wrong.')}</div>`;
       return;
     }
-    statusEl.textContent = `Retrieved ${data.retrievedCount} of ${data.totalCount} records in the current filter · ${data.usage ? `${data.usage.input_tokens}+${data.usage.output_tokens} tokens` : ''}`;
-    answerEl.innerHTML = `<div class="ask-answer">${escapeHtml(data.answer)}</div>`;
-    retrievedEl.innerHTML = data.retrievedRecordIds.map((id) =>
-      `<span class="ask-citation" data-id="${id}">S.No ${id}</span>`
-    ).join(' ');
-    retrievedEl.querySelectorAll('.ask-citation').forEach((el) => {
+    statusEl.textContent = data.summary;
+    if (data.records.length === 0) {
+      retrievedEl.innerHTML = '<p class="cap">No matches. Try fewer or different keywords.</p>';
+      return;
+    }
+    retrievedEl.innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>S.No</th><th>Enzyme</th><th>Origin</th><th>Family</th><th>Acceptor class</th><th>Donor(s)</th><th>Year</th></tr></thead>
+        <tbody>${data.records.map((r) => `
+          <tr class="ask-result-row" data-id="${r.id}" style="cursor:pointer;">
+            <td>${r.id}</td><td>${escapeHtml(r.enzyme || '')}</td>
+            <td><span class="badge ${r.origin === 'Plant' ? 'plant' : 'fungal'}">${r.origin || ''}</span></td>
+            <td>${escapeHtml(r.family || '')}</td><td>${escapeHtml(r.acceptorClass || '')}</td>
+            <td>${escapeHtml((r.allAcceptedDonors || []).join(', '))}</td><td>${r.year ?? ''}</td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+    retrievedEl.querySelectorAll('.ask-result-row').forEach((el) => {
       el.addEventListener('click', async () => await jumpToRecord(Number(el.dataset.id)));
     });
   } catch (err) {
     statusEl.textContent = '';
-    answerEl.innerHTML = `<div class="ask-error">Network error: ${escapeHtml(err.message)}</div>`;
+    retrievedEl.innerHTML = `<div class="ask-error">Network error: ${escapeHtml(err.message)}</div>`;
   } finally {
     btn.disabled = false;
   }

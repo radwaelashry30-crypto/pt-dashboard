@@ -246,23 +246,21 @@ file). Summary:
 | 175–182 | GgPT1, GgPT4, GinPT1–6 | pH/temperature auto-swap-corrected — verify against source publication |
 | 186, 187 | — | Referenced by the prior master prompt's donor-rule list but don't exist in this workbook |
 
-## "Ask the Data" (retrieval-augmented Q&A)
+## "Ask the Data" (free keyword search, no external API)
 
-A new tab lets you ask plain-language questions about the dataset. It is genuine RAG, scoped to
-what actually fits the data: **retrieval** is keyword scoring over the currently filtered records
-(no vector index — unnecessary overhead for ~200 short structured rows), the top ~15 matches are
-formatted into context, and **generation** is one call to `claude-opus-5` via the official
-`@anthropic-ai/sdk`, instructed to answer only from the provided records and cite the S.No on
-every claim. Clicking a citation jumps straight to that record in the Record Browser.
+A tab that lets you type a question or a few keywords and get back the matching records, ranked
+by relevance, from the currently filtered dataset — searching enzyme name, organism, family,
+acceptor class, donors, metals, expression host, author, and DOI (`server/search.js`). The
+summary line above the results (match count, plant/fungal split, most common acceptor class and
+donor among the matches) is computed directly from the data, not AI-generated. Clicking a result
+jumps to that record in the Record Browser.
 
-This requires your own `ANTHROPIC_API_KEY` (get one at console.anthropic.com — it's billed
-per-question, not free) set as an environment variable — locally in `.env`, and on Render under
-your service's **Environment** tab. Without it, the tab shows a clear "not configured" message
-and the rest of the dashboard is unaffected; this was verified by hitting the endpoint with no
-key set. **Full answer generation was not live-tested in this session** because no usable
-`ANTHROPIC_API_KEY` was available in this environment (only unrelated Claude Code session
-credentials, which are not a substitute) — the request/response wiring, retrieval scoring, and
-the graceful-failure path were verified instead. Test it yourself once a key is configured.
+This runs entirely locally — no external API, no API key, no per-query cost. An earlier version
+of this feature called the Claude API for AI-generated, citation-grounded answers (genuine RAG);
+that was replaced with this free keyword-search version by request, since a real LLM call is
+inherently pay-per-use and there's no way around that. If AI-generated answers are wanted later,
+`server/search.js`'s retrieval logic is already structured to be dropped into a prompt for an LLM
+call — see the git history for the original `server/rag.js` implementation.
 
 ## API surface
 

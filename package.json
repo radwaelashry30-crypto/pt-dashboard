@@ -14,7 +14,6 @@
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
     "chokidar": "^3.6.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.1",
