@@ -246,6 +246,24 @@ file). Summary:
 | 175–182 | GgPT1, GgPT4, GinPT1–6 | pH/temperature auto-swap-corrected — verify against source publication |
 | 186, 187 | — | Referenced by the prior master prompt's donor-rule list but don't exist in this workbook |
 
+## "Ask the Data" (retrieval-augmented Q&A)
+
+A new tab lets you ask plain-language questions about the dataset. It is genuine RAG, scoped to
+what actually fits the data: **retrieval** is keyword scoring over the currently filtered records
+(no vector index — unnecessary overhead for ~200 short structured rows), the top ~15 matches are
+formatted into context, and **generation** is one call to `claude-opus-5` via the official
+`@anthropic-ai/sdk`, instructed to answer only from the provided records and cite the S.No on
+every claim. Clicking a citation jumps straight to that record in the Record Browser.
+
+This requires your own `ANTHROPIC_API_KEY` (get one at console.anthropic.com — it's billed
+per-question, not free) set as an environment variable — locally in `.env`, and on Render under
+your service's **Environment** tab. Without it, the tab shows a clear "not configured" message
+and the rest of the dashboard is unaffected; this was verified by hitting the endpoint with no
+key set. **Full answer generation was not live-tested in this session** because no usable
+`ANTHROPIC_API_KEY` was available in this environment (only unrelated Claude Code session
+credentials, which are not a substitute) — the request/response wiring, retrieval scoring, and
+the graceful-failure path were verified instead. Test it yourself once a key is configured.
+
 ## API surface
 
 `GET /api/dataset/status|summary|filter-options|manual-review|audit-log`,

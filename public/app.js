@@ -462,6 +462,7 @@ function renderTab(tab) {
   else if (tab === 'insights') renderInsights();
   else if (tab === 'literature') renderLiterature();
   else if (tab === 'browser') renderBrowser();
+  else if (tab === 'ask') { /* no-op: askQuestion runs on demand via the Ask button */ }
 }
 function refreshAll() {
   renderKpiRow();
@@ -795,6 +796,16 @@ async function renderBrowser() {
   });
 }
 
+async function jumpToRecord(id) {
+  switchTab('browser');
+  browserState.sortField = 'id';
+  browserState.sortDir = 'asc';
+  browserState.page = Math.max(1, Math.ceil(id / browserState.pageSize));
+  await renderBrowser();
+  const btn = document.querySelector(`.expand-btn[data-id="${id}"]`);
+  if (btn) { btn.scrollIntoView({ block: 'center' }); toggleDetailRow(btn); }
+}
+
 async function toggleDetailRow(btn) {
   const tr = btn.closest('tr');
   const next = tr.nextElementSibling;
@@ -819,6 +830,57 @@ async function toggleDetailRow(btn) {
 }
 
 /* =========================================================================
+   Ask the Data (RAG)
+   ========================================================================= */
+function initAsk() {
+  const input = document.getElementById('askInput');
+  const btn = document.getElementById('askBtn');
+  const run = () => askTheData(input.value.trim());
+  btn.addEventListener('click', run);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+}
+
+async function askTheData(question) {
+  if (!question) return;
+  const statusEl = document.getElementById('askStatus');
+  const answerEl = document.getElementById('askAnswer');
+  const retrievedEl = document.getElementById('askRetrieved');
+  const btn = document.getElementById('askBtn');
+
+  btn.disabled = true;
+  statusEl.textContent = 'Retrieving relevant records and asking Claude…';
+  answerEl.innerHTML = '';
+  retrievedEl.innerHTML = '';
+
+  try {
+    const resp = await fetch('/api/analysis/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, filters: filtersToParams(filters).toString() ? Object.fromEntries(filtersToParams(filters)) : {} }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      statusEl.textContent = '';
+      answerEl.innerHTML = `<div class="ask-error">${escapeHtml(data.error || 'Something went wrong.')}</div>`;
+      return;
+    }
+    statusEl.textContent = `Retrieved ${data.retrievedCount} of ${data.totalCount} records in the current filter · ${data.usage ? `${data.usage.input_tokens}+${data.usage.output_tokens} tokens` : ''}`;
+    answerEl.innerHTML = `<div class="ask-answer">${escapeHtml(data.answer)}</div>`;
+    retrievedEl.innerHTML = data.retrievedRecordIds.map((id) =>
+      `<span class="ask-citation" data-id="${id}">S.No ${id}</span>`
+    ).join(' ');
+    retrievedEl.querySelectorAll('.ask-citation').forEach((el) => {
+      el.addEventListener('click', async () => await jumpToRecord(Number(el.dataset.id)));
+    });
+  } catch (err) {
+    statusEl.textContent = '';
+    answerEl.innerHTML = `<div class="ask-error">Network error: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* =========================================================================
    Utilities
    ========================================================================= */
 function escapeHtml(s) {
@@ -834,6 +896,7 @@ async function boot() {
   initFilterControls();
   initTabs();
   initBrowser();
+  initAsk();
   renderChips();
   await loadStatus();
   connectWS();
