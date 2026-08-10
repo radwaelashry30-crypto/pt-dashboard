@@ -1,11 +1,92 @@
 'use strict';
 
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const XLSX = require('xlsx');
 const { stringify } = require('csv-stringify/sync');
 const store = require('../store');
 const { applyFilters } = require('../analysis');
+const { getActiveRawRows } = require('../db');
+const { REQUIRED_COLUMNS } = require('../ingest/constants');
+const { ingestFile, IngestError } = require('../ingest/pipeline');
 
 const router = express.Router();
+
+// Maps the "Add a new enzyme record" form's field names to the exact source
+// workbook column names, so a manually added record goes through the exact
+// same parse -> validate -> normalize -> commit pipeline as any uploaded file.
+const FORM_FIELD_TO_COLUMN = {
+  enzyme: 'Enzyme',
+  acceptorClass: 'Acceptor class',
+  family: 'Family',
+  origin: 'Origin',
+  organism: 'Gene from organism',
+  acceptorAccepted: 'Prenyl acceptor (Aromatic substrate) - Accepted',
+  acceptorMedium: 'Prenyl acceptor (Aromatic substrate) - Medium to Not Accepted',
+  donorAccepted: 'Prenyl donor - Accepted',
+  donorMedium: 'Prenyl donor - Medium to Not Accepted',
+  metalAccepted: 'Metal ion - Accepted',
+  metalMedium: 'Metal ion - Medium to Not Accepted',
+  expressionHost: 'Expression in',
+  product: 'Product',
+  regio: 'Regio specificity',
+  km: 'Km value',
+  ph: 'Optimal pH',
+  temperature: 'Optimal temperature',
+  year: 'Year',
+  author: 'Author',
+  doi: 'doi',
+};
+
+const uploadsDir = path.join(__dirname, '..', '..', 'data', 'uploads');
+
+router.post('/add', express.json(), async (req, res) => {
+  const body = req.body || {};
+  const enzyme = (body.enzyme || '').trim();
+  const origin = (body.origin || '').trim().toUpperCase();
+  if (!enzyme) return res.status(400).json({ ok: false, error: 'Enzyme name is required.' });
+  if (origin !== 'P' && origin !== 'F') return res.status(400).json({ ok: false, error: 'Origin must be Plant or Fungal.' });
+
+  try {
+    const existingRows = getActiveRawRows();
+    const maxSno = existingRows.reduce((max, r) => Math.max(max, Number(r['S. No.']) || 0), 0);
+    const nextSno = maxSno + 1;
+
+    const newRow = { 'S. No.': nextSno };
+    for (const [formField, column] of Object.entries(FORM_FIELD_TO_COLUMN)) {
+      const val = body[formField];
+      newRow[column] = (val == null || String(val).trim() === '') ? null : val;
+    }
+    newRow['Origin'] = origin;
+    newRow['Enzyme'] = enzyme;
+
+    const allRows = [...existingRows, newRow];
+    const aoa = [REQUIRED_COLUMNS, ...allRows.map((r) => REQUIRED_COLUMNS.map((col) => r[col] ?? null))];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tabelle1');
+
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const tempPath = path.join(uploadsDir, `${stamp}__manual-add-${enzyme.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
+    XLSX.writeFile(wb, tempPath);
+
+    const result = await ingestFile(tempPath, path.basename(tempPath), (stage) => store.setStage(stage));
+    store.applyNewVersion(result);
+    res.json({
+      ok: true, version: result.version, recordCount: result.recordCount, newSno: nextSno,
+      refreshedAt: store.state.lastRefreshAt,
+    });
+  } catch (err) {
+    if (err instanceof IngestError) {
+      store.setError(err.message, err.details);
+      return res.status(422).json({ ok: false, error: err.message, details: err.details });
+    }
+    store.setError(err.message, []);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 function paginate(records, req) {
   const page = Math.max(1, Number(req.query.page) || 1);

@@ -152,4 +152,14 @@ function loadActiveDataset() {
   return loadVersion(meta.version);
 }
 
-module.exports = { getDb, commitVersion, getActiveVersionMeta, loadVersion, loadActiveDataset, DB_PATH };
+function getActiveRawRows() {
+  const meta = getActiveVersionMeta();
+  if (!meta) return [];
+  const database = getDb();
+  return database.prepare(`SELECT raw_json FROM raw_rows WHERE version = ? ORDER BY source_row`).all(meta.version)
+    .map((r) => JSON.parse(r.raw_json));
+}
+
+module.exports = {
+  getDb, commitVersion, getActiveVersionMeta, loadVersion, loadActiveDataset, getActiveRawRows, DB_PATH,
+};

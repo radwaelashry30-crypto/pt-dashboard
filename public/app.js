@@ -467,6 +467,7 @@ function renderTab(tab) {
   else if (tab === 'literature') renderLiterature();
   else if (tab === 'browser') renderBrowser();
   else if (tab === 'ask') { /* no-op: askQuestion runs on demand via the Ask button */ }
+  else if (tab === 'addrecord') { /* no-op: static form, submit runs on demand */ }
 }
 function refreshAll() {
   renderKpiRow();
@@ -974,6 +975,57 @@ async function askTheData(question) {
 }
 
 /* =========================================================================
+   Add Record
+   ========================================================================= */
+const ADD_RECORD_FIELDS = [
+  'enzyme', 'origin', 'family', 'organism', 'acceptorClass', 'expressionHost',
+  'acceptorAccepted', 'acceptorMedium', 'donorAccepted', 'donorMedium', 'metalAccepted', 'metalMedium',
+  'product', 'regio', 'km', 'ph', 'temperature', 'year', 'author', 'doi',
+];
+
+function initAddRecordForm() {
+  const form = document.getElementById('addRecordForm');
+  const statusEl = document.getElementById('addRecordStatus');
+  const submitBtn = document.getElementById('addRecordSubmit');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {};
+    ADD_RECORD_FIELDS.forEach((f) => { body[f] = document.getElementById(`ar-${f}`).value.trim(); });
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Adding record…';
+    statusEl.style.color = 'var(--ink-soft)';
+
+    try {
+      const resp = await fetch('/api/records/add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        statusEl.textContent = `${data.error}${data.details && data.details.length ? ' — ' + data.details.join('; ') : ''}`;
+        statusEl.style.color = 'var(--red)';
+        return;
+      }
+      statusEl.textContent = `Added as S.No ${data.newSno} — dataset now v${data.version}, ${data.recordCount} records.`;
+      statusEl.style.color = 'var(--success)';
+      form.reset();
+      toast(`New record added (S.No ${data.newSno}).`);
+    } catch (err) {
+      statusEl.textContent = `Network error: ${err.message}`;
+      statusEl.style.color = 'var(--red)';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('addRecordClear').addEventListener('click', () => {
+    form.reset();
+    statusEl.textContent = '';
+  });
+}
+
+/* =========================================================================
    Utilities
    ========================================================================= */
 function escapeHtml(s) {
@@ -990,6 +1042,7 @@ async function boot() {
   initTabs();
   initBrowser();
   initAsk();
+  initAddRecordForm();
   renderChips();
   await loadStatus();
   connectWS();

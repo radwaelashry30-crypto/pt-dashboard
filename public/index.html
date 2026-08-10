@@ -54,6 +54,7 @@
     <button class="tab-btn" data-tab="literature">Literature Analysis</button>
     <button class="tab-btn" data-tab="browser">Record Browser</button>
     <button class="tab-btn" data-tab="ask">Ask the Data</button>
+    <button class="tab-btn" data-tab="addrecord">+ Add Record</button>
   </div>
 </header>
 
@@ -386,6 +387,60 @@
         <p class="cap">Click a row to jump to it in the Record Browser.</p>
         <div id="askRetrieved"></div>
       </div>
+    </section>
+  </div>
+
+  <!-- ============ ADD RECORD ============ -->
+  <div class="page" id="page-addrecord">
+    <section>
+      <div class="sec-head"><span class="sec-num">+</span><h2>Add a New Enzyme Record</h2></div>
+      <p class="sec-desc">Enter one enzyme's data directly — it's appended to the existing dataset (not a
+      replacement) and goes through the exact same validation and normalization pipeline as an uploaded file, so it
+      gets a new S. No., shows up in every chart and filter immediately, and is included in the next report.</p>
+      <form id="addRecordForm" class="card add-record-form">
+        <div class="grid g2">
+          <div class="field"><label>Enzyme name *</label><input type="text" id="ar-enzyme" required placeholder="e.g. XyPT1"></div>
+          <div class="field"><label>Origin *</label>
+            <select id="ar-origin" required><option value="">Select…</option><option value="P">Plant</option><option value="F">Fungal</option></select>
+          </div>
+          <div class="field"><label>Family</label><input type="text" id="ar-family" placeholder="e.g. Fabaceae"></div>
+          <div class="field"><label>Organism (genus species)</label><input type="text" id="ar-organism" placeholder="e.g. Glycine max (Soy bean)"></div>
+          <div class="field"><label>Acceptor class</label><input type="text" id="ar-acceptorClass" placeholder="e.g. Flavonoid"></div>
+          <div class="field"><label>Expression host</label><input type="text" id="ar-expressionHost" placeholder="e.g. Yeast"></div>
+        </div>
+
+        <h4 class="form-subhead">Substrates &amp; cofactors</h4>
+        <div class="grid g2">
+          <div class="field"><label>Accepted aromatic acceptor(s)</label><textarea id="ar-acceptorAccepted" rows="2" placeholder="one per line"></textarea></div>
+          <div class="field"><label>Medium / not-accepted acceptor(s)</label><textarea id="ar-acceptorMedium" rows="2" placeholder="one per line"></textarea></div>
+          <div class="field"><label>Accepted donor(s)</label><input type="text" id="ar-donorAccepted" placeholder="e.g. DMAPP, GPP"></div>
+          <div class="field"><label>Medium / not-accepted donor(s)</label><input type="text" id="ar-donorMedium" placeholder="e.g. FPP, GGPP"></div>
+          <div class="field"><label>Accepted metal ion(s)</label><input type="text" id="ar-metalAccepted" placeholder="e.g. Mg2+, Mn2+"></div>
+          <div class="field"><label>Medium / not-accepted metal ion(s)</label><input type="text" id="ar-metalMedium" placeholder="e.g. Ca2+"></div>
+        </div>
+
+        <h4 class="form-subhead">Reaction details</h4>
+        <div class="grid g2">
+          <div class="field"><label>Product</label><input type="text" id="ar-product" placeholder="e.g. 3-geranyl-4-hydroxybenzoic acid"></div>
+          <div class="field"><label>Regio specificity</label><input type="text" id="ar-regio" placeholder="e.g. C3"></div>
+          <div class="field"><label>Km value(s)</label><textarea id="ar-km" rows="2" placeholder="e.g. DMAPP: 150 µM"></textarea></div>
+          <div class="field"><label>Optimal pH</label><input type="text" id="ar-ph" placeholder="e.g. 7.5"></div>
+          <div class="field"><label>Optimal temperature</label><input type="text" id="ar-temperature" placeholder="e.g. 30°C"></div>
+          <div class="field"><label>Year</label><input type="number" id="ar-year" placeholder="e.g. 2024"></div>
+        </div>
+
+        <h4 class="form-subhead">Reference</h4>
+        <div class="grid g2">
+          <div class="field"><label>Author</label><input type="text" id="ar-author" placeholder="e.g. Smith et al., 2024"></div>
+          <div class="field"><label>DOI</label><input type="text" id="ar-doi" placeholder="e.g. https://doi.org/..."></div>
+        </div>
+
+        <div class="add-record-actions">
+          <button type="submit" id="addRecordSubmit" class="upload-btn">Add record</button>
+          <button type="button" id="addRecordClear" class="chip-btn">Clear form</button>
+          <span id="addRecordStatus" class="mono" style="font-size:12px;"></span>
+        </div>
+      </form>
     </section>
   </div>
   </main>
