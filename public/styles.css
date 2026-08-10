@@ -184,6 +184,13 @@ table.data-table tr:hover td{background:var(--panel-2);}
 .ask-error{background:var(--red-soft); border:1px solid #5A2E27; border-radius:8px; padding:12px 14px; font-size:12.5px; color:#F2B3A6;}
 .ask-citation{display:inline-block; background:var(--fungal-soft); color:var(--fungal); border-radius:10px; padding:1px 8px; font-size:11px; margin:0 4px 0 0; cursor:pointer;}
 
+.quick-links{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 20px;}
+.quick-link-btn{background:var(--panel); border:1px solid var(--line); color:var(--ink-soft); font-size:12.5px; font-weight:500; padding:8px 14px; border-radius:20px; cursor:pointer; transition:border-color .15s ease, color .15s ease;}
+.quick-link-btn:hover{border-color:var(--plant); color:var(--plant);}
+.flag-item{display:flex; align-items:baseline; gap:8px; padding:6px 0; border-bottom:1px dashed var(--line); font-size:12.5px;}
+.flag-item:last-child{border-bottom:none;}
+.flag-item .n{font-family:'Source Serif 4',serif; font-size:16px; font-weight:600; color:var(--amber); min-width:26px;}
+
 footer{padding:20px 40px 40px; color:var(--ink-faint); font-size:11px; border-top:1px solid var(--line); text-align:center;}
 ::-webkit-scrollbar{width:9px; height:9px;}
 ::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:6px;}

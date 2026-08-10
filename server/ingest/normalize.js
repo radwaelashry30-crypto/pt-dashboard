@@ -163,6 +163,31 @@ function explodeFreeTextList(raw) {
 }
 
 // ---------------------------------------------------------------------------
+// Regio-position canonicalization. Extracts a short "C3" / "O5" style label
+// from each free-text regio token so records can be filtered/grouped by
+// position — while the raw tokens (and their tie to this record's own
+// acceptorClass) are always kept alongside, so a position is never presented
+// without its acceptor-class context and never merged across classes.
+// ---------------------------------------------------------------------------
+const REGIO_POSITION_REGEX = /^([CO])[\s-]?(\d+)?/i;
+
+function canonicalizeRegioPositions(regioTokens) {
+  const positions = [];
+  for (const token of regioTokens) {
+    const trimmed = token.trim();
+    if (/^(n\.?a\.?|no precise annotation)$/i.test(trimmed)) continue;
+    const m = trimmed.match(REGIO_POSITION_REGEX);
+    if (m) {
+      const canonical = m[1].toUpperCase() + (m[2] || '');
+      if (!positions.includes(canonical)) positions.push(canonical);
+    } else if (!positions.includes('Other')) {
+      positions.push('Other');
+    }
+  }
+  return positions;
+}
+
+// ---------------------------------------------------------------------------
 // pH / temperature parsing with plausibility-based swap correction
 // ---------------------------------------------------------------------------
 function parseRangeField(raw, { min, max }) {
@@ -339,6 +364,7 @@ function normalizeRow(row) {
   const kmEntries = parseKmField(row['Km value'], acceptedDonors.tokens);
 
   const regioTokens = explodeFreeTextList(row['Regio specificity']);
+  const regioPositions = canonicalizeRegioPositions(regioTokens);
 
   const allNotes = [...acceptedDonors.notes, ...mediumDonors.notes];
   const promiscuousDmapp =
@@ -388,6 +414,7 @@ function normalizeRow(row) {
     product: row['Product'] || null,
     regioRaw: row['Regio specificity'] || null,
     regioTokens,
+    regioPositions,
     year: row['Year'] != null ? Number(row['Year']) : null,
     author: row['Author'] || null,
     doi: row['doi'] || null,
@@ -459,4 +486,5 @@ module.exports = {
   parseRangeField,
   parseKmField,
   standaloneNumbers,
+  canonicalizeRegioPositions,
 };

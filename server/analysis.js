@@ -11,8 +11,8 @@ function toArrayParam(v) {
 /**
  * Applies the sidebar filter set to the canonical record list.
  * filters: { kingdom, family, genus, species, acceptorClass, donor, donorRole,
- *   metal, host, yearFrom, yearTo, completeness, promiscuousDmapp, search,
- *   includeMissing }
+ *   metal, regioPosition, host, yearFrom, yearTo, completeness, promiscuousDmapp,
+ *   search, includeMissing }
  */
 function applyFilters(records, filters = {}) {
   const kingdom = toArrayParam(filters.kingdom);
@@ -22,6 +22,7 @@ function applyFilters(records, filters = {}) {
   const acceptorClass = toArrayParam(filters.acceptorClass);
   const donor = toArrayParam(filters.donor);
   const metal = toArrayParam(filters.metal);
+  const regioPosition = toArrayParam(filters.regioPosition);
   const host = toArrayParam(filters.host);
   const completeness = toArrayParam(filters.completeness);
   const donorRole = filters.donorRole || 'accepted'; // 'primary' | 'accepted'
@@ -51,6 +52,7 @@ function applyFilters(records, filters = {}) {
     const donorValues = donorRole === 'primary' ? (r.primaryDonor ? [r.primaryDonor] : []) : r.allAcceptedDonors;
     if (!passesSetMulti(donorValues, donor, includeMissing)) return false;
     if (!passesSetMulti(r.acceptedMetals, metal, includeMissing)) return false;
+    if (!passesSetMulti(r.regioPositions, regioPosition, includeMissing)) return false;
     if (!passesSet(r.expressionHost, host, includeMissing)) return false;
     if (!passesSet(r.dataCompleteness, completeness, includeMissing)) return false;
     if (promiscuousDmapp && !r.promiscuousDmapp) return false;
@@ -86,6 +88,7 @@ function filterOptions(records) {
     acceptorClass: distinctSorted(records.map((r) => r.acceptorClass)),
     donor: distinctSorted(records.flatMap((r) => r.allAcceptedDonors)),
     metal: distinctSorted(records.flatMap((r) => r.acceptedMetals)),
+    regioPosition: distinctSorted(records.flatMap((r) => r.regioPositions)),
     host: distinctSorted(records.map((r) => r.expressionHost)),
     completeness: distinctSorted(records.map((r) => r.dataCompleteness)),
     yearMin: Math.min(...records.map((r) => r.year).filter(Number.isFinite)),
@@ -113,6 +116,45 @@ function kpis(records) {
     yearMin: years.length ? Math.min(...years) : null,
     yearMax: years.length ? Math.max(...years) : null,
     enzymesWithFullKmPair: withBothKm,
+  };
+}
+
+function topOf(counts) {
+  const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return entries.length ? { value: entries[0][0], count: entries[0][1] } : null;
+}
+
+/** Fast-read highlights for the Overview tab: leaderboard-style top values,
+ *  computed live from whatever record set is passed (no stored constants). */
+function highlights(records) {
+  const acceptorCounts = new Map();
+  const familyCounts = new Map();
+  const donorCounts = new Map();
+  const metalCounts = new Map();
+  let cPos = 0, oPos = 0;
+  records.forEach((r) => {
+    if (r.acceptorClass) acceptorCounts.set(r.acceptorClass, (acceptorCounts.get(r.acceptorClass) || 0) + 1);
+    if (r.family) familyCounts.set(r.family, (familyCounts.get(r.family) || 0) + 1);
+    new Set(r.allAcceptedDonors).forEach((d) => donorCounts.set(d, (donorCounts.get(d) || 0) + 1));
+    new Set(r.acceptedMetals).forEach((m) => metalCounts.set(m, (metalCounts.get(m) || 0) + 1));
+    if (r.regioPositions?.some((p) => p.startsWith('C'))) cPos++;
+    else if (r.regioPositions?.some((p) => p.startsWith('O'))) oPos++;
+  });
+  const complete = records.filter((r) => r.dataCompleteness === 'complete').length;
+  const promiscuousCount = records.filter((r) => r.promiscuousDmapp).length;
+  const ahpt1 = records.find((r) => r.enzyme === 'AhPT1');
+
+  return {
+    topAcceptorClass: topOf(acceptorCounts),
+    topFamily: topOf(familyCounts),
+    topDonor: topOf(donorCounts),
+    topMetal: topOf(metalCounts),
+    cPrenylationCount: cPos,
+    oPrenylationCount: oPos,
+    completeRecords: complete,
+    totalRecords: records.length,
+    promiscuousDmappCount: promiscuousCount,
+    hasAhpt1SpecialCase: !!ahpt1?.cofactorConditions,
   };
 }
 
@@ -287,6 +329,34 @@ function biologicalInsights(records) {
   return insights;
 }
 
+/** Acceptor class × Regio position — the two axes are always kept together
+ *  so a regio position is never presented without which acceptor class it
+ *  belongs to (Flavonoid C3 and Coumarin C3 stay distinct cells, never
+ *  summed into one "C3" total). */
+function regioByAcceptorClass(records) {
+  const cellCounts = new Map(); // "acceptorClass||position" -> count
+  const classDenominator = new Map();
+  records.forEach((r) => {
+    if (!r.acceptorClass || !r.regioPositions.length) return;
+    classDenominator.set(r.acceptorClass, (classDenominator.get(r.acceptorClass) || 0) + 1);
+    const seen = new Set();
+    r.regioPositions.forEach((pos) => {
+      if (seen.has(pos)) return;
+      seen.add(pos);
+      const key = `${r.acceptorClass}||${pos}`;
+      cellCounts.set(key, (cellCounts.get(key) || 0) + 1);
+    });
+  });
+  const rows = [];
+  for (const [key, count] of cellCounts.entries()) {
+    const [acceptorClass, regioPosition] = key.split('||');
+    const denom = classDenominator.get(acceptorClass) || 0;
+    rows.push({ acceptorClass, regioPosition, count, denominator: denom, percent: denom ? (count / denom) * 100 : 0 });
+  }
+  rows.sort((a, b) => a.acceptorClass.localeCompare(b.acceptorClass) || b.count - a.count);
+  return { unit: 'records (record counted once per distinct position within its own acceptor class)', rows };
+}
+
 function literature(records) {
   const byYear = new Map();
   records.forEach((r) => {
@@ -302,5 +372,5 @@ function literature(records) {
 
 module.exports = {
   applyFilters, filterOptions, kpis, allBivariate, bivariate, statisticalAnalysis,
-  biologicalInsights, literature, distinctSorted,
+  biologicalInsights, literature, distinctSorted, regioByAcceptorClass, highlights,
 };

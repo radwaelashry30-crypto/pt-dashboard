@@ -5,7 +5,7 @@
    ========================================================================= */
 const DEFAULT_FILTERS = {
   kingdom: 'All', family: [], genus: [], species: [], acceptorClass: [],
-  donor: [], donorRole: 'accepted', metal: [], host: [], completeness: [],
+  donor: [], donorRole: 'accepted', metal: [], regioPosition: [], host: [], completeness: [],
   yearFrom: null, yearTo: null, promiscuousDmapp: false, search: '', includeMissing: true,
 };
 let filters = loadFiltersFromUrl();
@@ -15,7 +15,7 @@ let browserState = { page: 1, pageSize: 25, sortField: 'id', sortDir: 'asc', tot
 let datasetMeta = null;
 let ws = null;
 
-const MULTISELECT_FIELDS = ['family', 'genus', 'species', 'acceptorClass', 'donor', 'metal', 'host', 'completeness'];
+const MULTISELECT_FIELDS = ['family', 'genus', 'species', 'acceptorClass', 'donor', 'metal', 'regioPosition', 'host', 'completeness'];
 
 /* =========================================================================
    URL / filter serialization
@@ -446,6 +446,10 @@ function initTabs() {
     const btn = e.target.closest('.tab-btn'); if (!btn) return;
     switchTab(btn.dataset.tab);
   });
+  document.getElementById('quickLinks').addEventListener('click', (e) => {
+    const btn = e.target.closest('.quick-link-btn'); if (!btn) return;
+    switchTab(btn.dataset.tab);
+  });
 }
 function switchTab(tab) {
   currentTab = tab;
@@ -514,6 +518,31 @@ async function renderOverview() {
     <div class="card stat-card"><div class="big">${k.yearMin ?? '—'}–${k.yearMax ?? '—'}</div><div class="lbl">Publication span</div><div class="sub">of current filtered set</div></div>
     <div class="card stat-card"><div class="big">${k.enzymesWithFullKmPair}</div><div class="lbl">Enzymes with full K<sub>m</sub> pair</div><div class="sub">donor + acceptor extractable</div></div>
   `;
+
+  const h = summary.highlights;
+  document.getElementById('overviewHighlights').innerHTML = kv({
+    'Top acceptor class': h.topAcceptorClass ? `${h.topAcceptorClass.value} (${h.topAcceptorClass.count})` : '—',
+    'Top plant family': h.topFamily ? `${h.topFamily.value} (${h.topFamily.count})` : '—',
+    'Top donor': h.topDonor ? `${h.topDonor.value} (${h.topDonor.count})` : '—',
+    'Top metal ion': h.topMetal ? `${h.topMetal.value} (${h.topMetal.count})` : '—',
+    'C- vs O-prenylation': `${h.cPrenylationCount} C / ${h.oPrenylationCount} O`,
+    'Full data profile': `${h.completeRecords} of ${h.totalRecords} complete`,
+  });
+
+  const flagsEl = document.getElementById('overviewFlags');
+  const flags = [];
+  if (h.promiscuousDmappCount > 0) {
+    flags.push({ n: h.promiscuousDmappCount, text: 'record(s) heuristically flagged as promiscuous DMAPP acceptors (DMAPP + ≥4 accepted aromatic substrates) — confirm against the source publication.' });
+  }
+  if (h.hasAhpt1SpecialCase) {
+    flags.push({ n: 1, text: 'record (AhPT1) is a manually curated cofactor-dependent special case — Mg²⁺ and Mn²⁺ produce different regiochemistry on different substrates; see the Data Cleaning tab.' });
+  }
+  if (summary.manualReviewCount > 0) {
+    flags.push({ n: summary.manualReviewCount, text: 'total items on the manual-review list (pH/temperature auto-swaps, unrecognized tokens, and the above) — see the Data Cleaning &amp; Parsing tab.' });
+  }
+  flagsEl.innerHTML = flags.length
+    ? flags.map((f) => `<div class="flag-item"><span class="n">${f.n}</span><span>${f.text}</span></div>`).join('')
+    : '<p class="cap">No special-case flags in the current filtered set.</p>';
 }
 function kv(obj) {
   return Object.entries(obj).map(([k, v]) => `<div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div>`).join('');
@@ -685,6 +714,20 @@ async function renderBivariate() {
   renderCrossTab('chart-f-genus-acc', bivar.fungal.genus_acceptorClass, 'genus');
   renderCrossTab('chart-f-genus-don', bivar.fungal.genus_donor, 'genus');
   renderKmScatter();
+  renderRegioChart();
+}
+
+async function renderRegioChart() {
+  const data = await api('/api/analysis/regio');
+  const classes = [...new Set(data.rows.map((r) => r.acceptorClass))].sort();
+  const positions = [...new Set(data.rows.map((r) => r.regioPosition))].sort();
+  const z = classes.map((c) => positions.map((p) => data.rows.find((r) => r.acceptorClass === c && r.regioPosition === p)?.count || 0));
+  plot('chart-regio', [{
+    type: 'heatmap', x: positions, y: classes, z,
+    colorscale: [[0, cssVar('--panel-2')], [1, cssVar('--plant')]], showscale: true,
+    hovertemplate: '%{y} · position %{x}<br>%{z} records<extra></extra>',
+  }], { margin: { l: 170, r: 20, t: 10, b: 50 } },
+  { onClick: (d) => { pushHistory(); filters.acceptorClass = [d.points[0].y]; filters.regioPosition = [d.points[0].x]; onFiltersChanged(); } });
 }
 
 async function renderHeatmapKingdomAcceptor() {

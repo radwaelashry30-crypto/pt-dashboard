@@ -91,6 +91,7 @@
     </div>
 
     <div class="filter-block" data-filter="metal"><h4>Metal ion / cofactor</h4><div class="multiselect" data-field="metal"></div></div>
+    <div class="filter-block" data-filter="regioPosition"><h4>Regio-position</h4><p class="cap" style="margin:0 0 6px;">Always paired with acceptor class — combine with the acceptor-class filter above for context (e.g. Flavonoid + C3 vs. Coumarin + C3 are distinct).</p><div class="multiselect" data-field="regioPosition"></div></div>
     <div class="filter-block" data-filter="host"><h4>Expression host</h4><div class="multiselect" data-field="host"></div></div>
     <div class="filter-block" data-filter="completeness"><h4>Data completeness</h4><div class="multiselect" data-field="completeness"></div></div>
 
@@ -136,7 +137,15 @@
       <div class="sec-head"><span class="sec-num">00</span><h2>Overview</h2></div>
       <p class="sec-desc">Live status, dataset provenance, and high-level plant/fungal composition of the currently
       loaded dataset. Use the sidebar to filter every chart, table, and statistic in every tab simultaneously.</p>
-      <div class="grid g2">
+
+      <div class="quick-links" id="quickLinks">
+        <button class="quick-link-btn" data-tab="eda">Explore charts →</button>
+        <button class="quick-link-btn" data-tab="bivariate">Bivariate analysis →</button>
+        <button class="quick-link-btn" data-tab="ask">Ask the data →</button>
+        <button class="quick-link-btn" data-tab="browser">Browse records →</button>
+      </div>
+
+      <div class="grid g3">
         <div class="card">
           <h3>Dataset status</h3>
           <p class="cap">Source file, version, and validation state.</p>
@@ -147,8 +156,19 @@
           <p class="cap">Latest refresh events (watcher and uploads).</p>
           <ul id="activityLog" class="activity-log mono"></ul>
         </div>
+        <div class="card">
+          <h3>Highlights</h3>
+          <p class="cap">Leaderboard-style top values, computed live — not stored numbers.</p>
+          <div id="overviewHighlights" class="kv-table mono"></div>
+        </div>
       </div>
       <div class="grid g3" id="overviewKpiCards" style="margin-top:16px;"></div>
+
+      <div class="card" id="overviewFlagsCard" style="margin-top:16px;">
+        <h3>Special-case flags</h3>
+        <p class="cap">Records that need extra care when reading the data — see the Data Cleaning &amp; Parsing tab for full detail.</p>
+        <div id="overviewFlags"></div>
+      </div>
     </section>
   </div>
 
@@ -249,6 +269,9 @@
       <div class="grid g2">
         <div class="card"><h3>Origin × Acceptor class</h3><p class="cap">Heatmap of enzyme counts by kingdom and acceptor class.</p><div class="chart" id="chart-kxa" style="height:520px;"></div></div>
         <div class="card"><h3>Year × Origin (stacked)</h3><p class="cap">Annual record counts stacked by kingdom.</p><div class="chart" id="chart-yearstack" style="height:520px;"></div></div>
+      </div>
+      <div class="grid g1" style="margin-top:16px;">
+        <div class="card"><h3>Acceptor class × Regio-position</h3><p class="cap">Every cell is scoped to its own acceptor class — the same position (e.g. C3) under two different acceptor classes is never merged into one total. Records without a parseable regio position are excluded.</p><div class="chart" id="chart-regio" style="height:560px;"></div></div>
       </div>
     </section>
     <section>

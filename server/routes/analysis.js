@@ -2,7 +2,7 @@
 
 const express = require('express');
 const store = require('../store');
-const { applyFilters, allBivariate, statisticalAnalysis, biologicalInsights, literature } = require('../analysis');
+const { applyFilters, allBivariate, statisticalAnalysis, biologicalInsights, literature, regioByAcceptorClass } = require('../analysis');
 const { searchRecords } = require('../search');
 
 const router = express.Router();
@@ -34,6 +34,11 @@ router.get('/insights', (req, res) => {
 router.get('/literature', (req, res) => {
   const filtered = applyFilters(store.state.records, req.query);
   res.json(literature(filtered));
+});
+
+router.get('/regio', (req, res) => {
+  const filtered = applyFilters(store.state.records, req.query);
+  res.json(regioByAcceptorClass(filtered));
 });
 
 module.exports = router;

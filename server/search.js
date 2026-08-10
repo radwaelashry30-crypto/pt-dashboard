@@ -4,10 +4,37 @@
 // deterministic (non-AI) summary. No external API, no cost, no API key.
 
 const STOPWORDS = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'of', 'in', 'on', 'for', 'to', 'and', 'or',
-  'which', 'what', 'how', 'many', 'does', 'do', 'with', 'that', 'this', 'has', 'have']);
+  'which', 'what', 'how', 'many', 'does', 'do', 'with', 'that', 'this', 'has', 'have', 'any', 'all', 'me', 'about']);
+
+// Common Arabic domain terms mapped to the English tokens actually stored in
+// the dataset. The underlying records are all in English (enzyme names,
+// families, chemical names), so an Arabic query can only ever match via this
+// bridge — it is intentionally small and scoped to terms that appear in this
+// dataset, not a general translator.
+const ARABIC_TERM_MAP = {
+  'فطري': 'fungal', 'فطر': 'fungal', 'فطريات': 'fungal',
+  'نباتي': 'plant', 'نبات': 'plant', 'نباتات': 'plant',
+  'انزيم': 'enzyme', 'إنزيم': 'enzyme', 'انزيمات': 'enzyme', 'إنزيمات': 'enzyme',
+  'حرارة': 'temperature', 'الحرارة': 'temperature', 'درجة': 'temperature',
+  'حموضة': 'ph', 'الحموضة': 'ph',
+  'معدن': 'metal', 'المعدن': 'metal', 'معادن': 'metal', 'كوفاكتور': 'cofactor',
+  'دونور': 'donor', 'مانح': 'donor', 'مانحات': 'donor',
+  'مستقبل': 'acceptor', 'مستقبلات': 'acceptor',
+  'عائلة': 'family', 'الفصيلة': 'family', 'فصيلة': 'family',
+  'جنس': 'genus',
+  'سنة': 'year', 'عام': 'year',
+  'مؤلف': 'author', 'كاتب': 'author',
+  'خميرة': 'yeast',
+};
+
+// Matches Latin letters/digits AND Arabic-script letters (Unicode block
+// U+0600–U+06FF), so an Arabic query produces real tokens instead of an
+// empty list.
+const TOKEN_REGEX = /[a-z0-9'+-]+|[؀-ۿ]+/g;
 
 function tokenize(text) {
-  return String(text).toLowerCase().match(/[a-z0-9'+-]+/g) || [];
+  const raw = String(text).toLowerCase().match(TOKEN_REGEX) || [];
+  return raw.map((t) => ARABIC_TERM_MAP[t] || t);
 }
 
 function recordSearchableText(r) {
@@ -15,14 +42,21 @@ function recordSearchableText(r) {
     r.enzyme, r.organism, r.family, r.genus, r.species, r.acceptorClass,
     r.primaryDonor, ...(r.allAcceptedDonors || []), ...(r.acceptedMetals || []),
     ...(r.acceptedAcceptors || []), r.expressionHost, r.author, r.doi, r.origin,
-    r.year, r.product,
+    r.year, r.product, r.ph?.valid ? `ph ${r.ph.mid}` : '', r.temp?.valid ? `temperature ${r.temp.mid}` : '',
+    ...(r.regioTokens || []),
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
-/** Keyword retrieval: score every record by query-term overlap, return the top N. */
+/** Keyword retrieval: score every record by query-term overlap, return the top N.
+ *  Returns an empty match list (never a misleading arbitrary fallback) when
+ *  the query has real terms but none of them actually appear in any record. */
 function retrieveRelevantRecords(question, records, topN = 20) {
-  const terms = tokenize(question).filter((t) => !STOPWORDS.has(t) && t.length > 1);
-  if (terms.length === 0) return { matches: records.slice(0, topN), terms };
+  const allTerms = tokenize(question);
+  const terms = allTerms.filter((t) => !STOPWORDS.has(t) && t.length > 1);
+
+  if (terms.length === 0) {
+    return { matches: [], terms: [], noUsableTerms: true };
+  }
 
   const scored = records.map((r) => {
     const text = recordSearchableText(r);
@@ -36,7 +70,7 @@ function retrieveRelevantRecords(question, records, topN = 20) {
 
   scored.sort((a, b) => b.score - a.score);
   const withHits = scored.filter((s) => s.score > 0);
-  return { matches: withHits.slice(0, topN).map((s) => s.r), terms };
+  return { matches: withHits.slice(0, topN).map((s) => s.r), terms, noUsableTerms: false };
 }
 
 function mostCommon(values) {
@@ -48,8 +82,13 @@ function mostCommon(values) {
 }
 
 /** A short, deterministic (rule-based, not AI-generated) summary of the matches. */
-function summarize(matches, totalCount) {
-  if (matches.length === 0) return 'No records matched this query in the current filtered set.';
+function summarize(matches, totalCount, terms, noUsableTerms) {
+  if (noUsableTerms) {
+    return 'Could not extract any searchable keyword from that query — try a specific enzyme name, family, genus, acceptor class, donor, or metal ion.';
+  }
+  if (matches.length === 0) {
+    return `No records matched "${terms.join(', ')}" in the current filtered set. Try a different spelling or a broader term (e.g. an acceptor class or family name instead of a full sentence).`;
+  }
   const plant = matches.filter((r) => r.origin === 'Plant').length;
   const fungal = matches.filter((r) => r.origin === 'Fungal').length;
   const topClass = mostCommon(matches.map((r) => r.acceptorClass));
@@ -63,10 +102,10 @@ function summarize(matches, totalCount) {
 }
 
 function searchRecords(question, records, topN = 20) {
-  const { matches, terms } = retrieveRelevantRecords(question, records, topN);
+  const { matches, terms, noUsableTerms } = retrieveRelevantRecords(question, records, topN);
   return {
     ok: true,
-    summary: summarize(matches, records.length),
+    summary: summarize(matches, records.length, terms, noUsableTerms),
     matchedTerms: terms,
     totalCount: records.length,
     matchCount: matches.length,
@@ -79,4 +118,4 @@ function searchRecords(question, records, topN = 20) {
   };
 }
 
-module.exports = { searchRecords, retrieveRelevantRecords };
+module.exports = { searchRecords, retrieveRelevantRecords, tokenize };

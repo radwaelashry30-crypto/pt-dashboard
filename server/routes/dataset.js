@@ -2,7 +2,7 @@
 
 const express = require('express');
 const store = require('../store');
-const { kpis, applyFilters, filterOptions } = require('../analysis');
+const { kpis, applyFilters, filterOptions, highlights } = require('../analysis');
 
 const router = express.Router();
 
@@ -22,6 +22,7 @@ router.get('/summary', (req, res) => {
   res.json({
     kpis: kpis(filtered),
     kpisUnfiltered: kpis(store.state.records),
+    highlights: highlights(filtered),
     meta: store.state.meta,
     manualReviewCount: store.state.manualReview.length,
   });
